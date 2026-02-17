@@ -166,3 +166,15 @@ pytest tests/ -v
 ## License
 
 MIT
+
+## Multi-Root Workspace (BrianKenyon.com)
+
+This package is used as an editable install in the BrianKenyon.com project. To get full editor support (file tree, diagnostics, code navigation) for both projects simultaneously:
+
+1. Open `BrianKenyon.code-workspace` from the BrianKenyon.com project root
+2. Both folders appear in the sidebar — edits to this package take effect immediately
+
+The workspace file lives at:
+```
+/Users/briankenyon/Development/Active/BrianKenyon.com/BrianKenyon.code-workspace
+```

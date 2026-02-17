@@ -16,6 +16,7 @@ Flask Error Tracker is a unified error logging, tracking, and debugging system f
 | Blueprint | `flask_error_tracker/blueprint.py` | Flask Blueprint with dashboard + REST API routes |
 | Dashboard | `flask_error_tracker/templates/error_log.html` | Real-time error viewer with live log, modals, debug report copy |
 | Error Collector | `flask_error_tracker/static/error-collector.js` | Frontend JS that auto-captures browser errors and sends to API |
+| Debug Button | `flask_error_tracker/static/debug-button.js` | Floating debug button widget with in-memory console/error log viewer |
 | Standalone App | `app.py` | Runs the tracker as an independent Flask server |
 
 ### Database Schema
@@ -62,6 +63,12 @@ python app.py --port 5100
 ```html
 <script src="/error-tracker-static/error-collector.js"></script>
 ```
+
+**Debug button widget (floating 🐛 button with console log viewer):**
+```html
+<script src="/error-tracker-static/debug-button.js"></script>
+```
+Configurable via `window.DEBUG_BUTTON_CONFIG` (position, errorLogUrl, showTestButton, maxLogs). Exposes `window.DebugButton` API.
 
 ## Error Logging Convention
 

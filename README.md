@@ -65,6 +65,36 @@ Auto-captures JS errors, failed fetches, console.error, and toast errors. Manual
 ErrorCollector.report('CustomError', 'Something broke', { userId: 123 });
 ```
 
+### Debug Button (floating widget)
+
+Add a self-contained debug button to any page — captures console logs and JS errors in-memory, shows them in a modal, with copy-to-clipboard:
+```html
+<script src="/error-tracker-static/debug-button.js"></script>
+```
+
+A red 🐛 Debug button appears in the lower-right corner with a live error count badge. Click it to view all captured errors and console output. Optional config:
+```html
+<script>
+  window.DEBUG_BUTTON_CONFIG = {
+    position: 'bottom-right',   // or 'bottom-left'
+    errorLogUrl: '/error-log',  // link to full dashboard (null to hide)
+    showTestButton: true,       // show test error button in modal
+    maxLogs: 500,               // max log entries to keep
+  };
+</script>
+<script src="/error-tracker-static/debug-button.js"></script>
+```
+
+Public API:
+```javascript
+DebugButton.show();           // open the modal
+DebugButton.hide();           // close it
+DebugButton.logError(msg, e); // manually log an error
+DebugButton.clear();          // clear all logs
+DebugButton.getErrorLog();    // get error entries
+DebugButton.getConsoleLog();  // get console entries
+```
+
 ## Default Categories
 
 `database`, `api`, `frontend`, `server`, `worker`, `test`, `content_processing`

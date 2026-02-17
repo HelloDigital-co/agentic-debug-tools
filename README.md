@@ -167,14 +167,14 @@ pytest tests/ -v
 
 MIT
 
-## Multi-Root Workspace (BrianKenyon.com)
+## Multi-Root Workspace (HelloDigital-Site-Recovery-Tools)
 
-This package is used as an editable install in the BrianKenyon.com project. To get full editor support (file tree, diagnostics, code navigation) for both projects simultaneously:
+This package is used as an editable install in the HelloDigital-Site-Recovery-Tools project. To get full editor support (file tree, diagnostics, code navigation) for both projects simultaneously:
 
-1. Open `BrianKenyon.code-workspace` from the BrianKenyon.com project root
+1. Open `BrianKenyon.code-workspace` from the HelloDigital-Site-Recovery-Tools project root
 2. Both folders appear in the sidebar — edits to this package take effect immediately
 
 The workspace file lives at:
 ```
-/Users/briankenyon/Development/Active/BrianKenyon.com/BrianKenyon.code-workspace
+/Users/briankenyon/Development/Active/HelloDigital-Site-Recovery-Tools/BrianKenyon.code-workspace
 ```

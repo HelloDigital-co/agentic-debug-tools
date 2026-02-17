@@ -135,7 +135,7 @@ def create_blueprint(error_db: ErrorDatabase = None, url_prefix: str = '') -> Bl
 
 
 def init_error_tracker(app, error_db: ErrorDatabase = None, url_prefix: str = '',
-                       catch_flask_errors: bool = True):
+                       catch_flask_errors: bool = True, debug_button: str = 'errors-only'):
     """
     One-call setup: registers the blueprint and optionally installs a global
     Flask error handler that logs unhandled exceptions.
@@ -145,6 +145,10 @@ def init_error_tracker(app, error_db: ErrorDatabase = None, url_prefix: str = ''
         error_db: An ErrorDatabase instance. Uses singleton if not provided.
         url_prefix: URL prefix for all error tracker routes.
         catch_flask_errors: If True, registers a global errorhandler(Exception).
+        debug_button: Controls the floating debug button on every HTML page.
+            'errors-only' (default) — hidden, appears only when JS errors are detected.
+            'always'                — visible on every page regardless of errors.
+            False / None            — disabled, no auto-injection.
 
     Returns:
         The registered Blueprint.
@@ -171,5 +175,34 @@ def init_error_tracker(app, error_db: ErrorDatabase = None, url_prefix: str = ''
                 }
             )
             return jsonify({'error': 'Internal server error'}), 500
+
+    # ── Auto-inject debug button + error collector into every HTML response ──
+    if debug_button:
+        always_visible = 'true' if debug_button == 'always' else 'false'
+        static_prefix = url_prefix.rstrip('/') + '/error-tracker-static'
+
+        _snippet = (
+            f'\n<script>window.DEBUG_BUTTON_CONFIG={{alwaysVisible:{always_visible},'
+            f'errorLogUrl:"{url_prefix.rstrip("/")}/error-log"}};</script>'
+            f'\n<script src="{static_prefix}/error-collector.js"></script>'
+            f'\n<script src="{static_prefix}/debug-button.js"></script>\n'
+        )
+        _snippet_bytes = _snippet.encode('utf-8')
+        _close_body = b'</body>'
+
+        @app.after_request
+        def _inject_debug_button(response):
+            # Only inject into HTML responses that contain </body>
+            if (response.content_type
+                    and 'text/html' in response.content_type
+                    and response.status_code < 400
+                    and not response.direct_passthrough):
+                try:
+                    data = response.get_data()
+                    if _close_body in data:
+                        response.set_data(data.replace(_close_body, _snippet_bytes + _close_body, 1))
+                except Exception:
+                    pass  # Never break the response
+            return response
 
     return bp

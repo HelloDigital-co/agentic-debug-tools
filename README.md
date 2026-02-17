@@ -21,6 +21,17 @@ app = Flask(__name__)
 init_error_tracker(app)
 ```
 
+The debug button auto-injects into every HTML page. By default it's hidden and only appears when JS errors are detected. To make it always visible:
+
+```python
+init_error_tracker(app, debug_button='always')
+```
+
+Options for `debug_button`:
+- `'errors-only'` (default) — hidden until a JS error, console.error, or unhandled rejection occurs
+- `'always'` — visible on every page regardless of errors
+- `False` — disabled, no auto-injection
+
 Then visit `/error-log` in your app.
 
 ### As a Standalone Service

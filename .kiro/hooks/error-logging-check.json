@@ -1,0 +1,15 @@
+{
+    "name": "Error Logging Check",
+    "version": "1.0.0",
+    "description": "After writing Python files, verify that try/except blocks include error logging to the centralized error database",
+    "when": {
+        "type": "fileEdited",
+        "patterns": [
+            "*.py"
+        ]
+    },
+    "then": {
+        "type": "askAgent",
+        "prompt": "Check the edited Python file for any try/except blocks that silently swallow errors without logging to the error database. Every except block should either: (1) call get_error_db().log_error() with category, error_type, error_message, context, and stack_trace, (2) re-raise the exception, or (3) have a comment explaining why logging is skipped. If you find silent exception handling, suggest adding proper error logging."
+    }
+}

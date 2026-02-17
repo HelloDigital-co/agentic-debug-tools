@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Error Log — Flask Error Tracker</title>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:#1a1a2e;color:#e0e0e0;line-height:1.6;padding-bottom:220px}
+    .header{background:linear-gradient(135deg,#c0392b 0%,#8e44ad 100%);color:#fff;padding:1.5rem 2rem}
+    .header h1{font-size:1.8rem;margin-bottom:.3rem}
+    .header p{opacity:.85;font-size:.95rem}
+    .container{max-width:1600px;margin:0 auto;padding:1.5rem}
+    /* Stats */
+    .stats-row{display:flex;gap:1rem;margin-bottom:1.5rem;flex-wrap:wrap}
+    .stat-card{background:#16213e;padding:1rem 1.5rem;border-radius:8px;min-width:150px;border-left:4px solid #e74c3c}
+    .stat-card.resolved{border-left-color:#27ae60}
+    .stat-card .value{font-size:2rem;font-weight:bold;color:#fff}
+    .stat-card .label{color:#888;font-size:.85rem}
+    /* Tabs */
+    .tabs{display:flex;gap:0;background:#16213e;border-radius:8px 8px 0 0;overflow-x:auto}
+    .tab{padding:1rem 1.5rem;cursor:pointer;border-bottom:3px solid transparent;color:#888;white-space:nowrap;transition:all .2s}
+    .tab:hover{color:#fff;background:rgba(255,255,255,.05)}
+    .tab.active{color:#fff;border-bottom-color:#e74c3c;background:rgba(255,255,255,.1)}
+    .tab .count{background:#e74c3c;color:#fff;padding:2px 8px;border-radius:10px;font-size:.75rem;margin-left:8px}
+    .tab .count.zero{background:#27ae60}
+    /* Error list */
+    .error-panel{background:#16213e;border-radius:0 0 8px 8px;min-height:300px}
+    .error-list{padding:1rem}
+    .error-item{background:#1a1a2e;border-radius:8px;padding:1rem;margin-bottom:.75rem;border-left:4px solid #e74c3c;cursor:pointer;transition:all .2s}
+    .error-item:hover{background:#222244;transform:translateX(4px)}
+    .error-item.resolved{border-left-color:#27ae60;opacity:.7}
+    .error-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:.5rem}
+    .error-type{font-family:monospace;background:#e74c3c;color:#fff;padding:2px 8px;border-radius:4px;font-size:.85rem}
+    .error-count{background:#f39c12;color:#000;padding:2px 10px;border-radius:12px;font-size:.8rem;font-weight:bold}
+    .error-message{color:#fff;margin-bottom:.5rem;font-size:.95rem;word-break:break-word}
+    .error-meta{display:flex;gap:1.5rem;font-size:.8rem;color:#888;flex-wrap:wrap}
+    .error-meta span{display:flex;align-items:center;gap:4px}
+    /* Modal */
+    .modal{display:none;position:fixed;z-index:1000;left:0;top:0;width:100%;height:100%;background:rgba(0,0,0,.8);overflow-y:auto}
+    .modal.active{display:block}
+    .modal-content{background:#16213e;margin:2% auto;border-radius:12px;max-width:900px;max-height:90vh;overflow:hidden;display:flex;flex-direction:column}
+    .modal-header{background:linear-gradient(135deg,#c0392b 0%,#8e44ad 100%);padding:1.5rem;display:flex;justify-content:space-between;align-items:center}
+    .modal-header h2{color:#fff;font-size:1.2rem}
+    .modal-close{color:#fff;font-size:1.5rem;cursor:pointer;background:none;border:none;padding:.5rem}
+    .modal-body{padding:1.5rem;overflow-y:auto;flex:1}
+    .detail-section{background:#1a1a2e;border-radius:8px;padding:1rem;margin-bottom:1rem}
+    .detail-section h3{color:#e74c3c;font-size:.9rem;margin-bottom:.75rem;text-transform:uppercase}
+    .detail-row{display:flex;margin-bottom:.5rem}
+    .detail-label{color:#888;width:120px;flex-shrink:0}
+    .detail-value{color:#fff;word-break:break-all}
+    pre{background:#0d0d1a;padding:1rem;border-radius:6px;overflow-x:auto;font-size:.85rem;color:#e0e0e0;white-space:pre-wrap;word-break:break-word}
+    .btn{padding:.6rem 1.2rem;border:none;border-radius:6px;cursor:pointer;font-size:.9rem;transition:all .2s}
+    .btn-primary{background:#3498db;color:#fff}.btn-primary:hover{background:#2980b9}
+    .btn-success{background:#27ae60;color:#fff}.btn-success:hover{background:#1e8449}
+    .btn-danger{background:#e74c3c;color:#fff}.btn-danger:hover{background:#c0392b}
+    .btn-copy{background:#9b59b6;color:#fff;display:flex;align-items:center;gap:6px}.btn-copy:hover{background:#8e44ad}
+    .modal-actions{padding:1rem 1.5rem;background:#1a1a2e;display:flex;gap:.75rem;justify-content:flex-end;border-top:1px solid #333}
+    .empty-state{text-align:center;padding:3rem;color:#666}
+    .empty-state h3{color:#27ae60;margin-bottom:.5rem}
+    /* Toast */
+    .toast{position:fixed;bottom:240px;right:20px;background:#27ae60;color:#fff;padding:1rem 1.5rem;border-radius:8px;display:none;z-index:2000;animation:slideIn .3s ease}
+    .toast.show{display:block}
+    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+    /* Live Event Log */
+    .live-event-log{position:fixed;bottom:0;left:0;right:0;height:200px;background:#0d0d1a;border-top:3px solid #e74c3c;display:flex;flex-direction:column;z-index:100}
+    .live-log-header{background:#16213e;padding:8px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #333}
+    .live-log-header h3{color:#e74c3c;font-size:.9rem;display:flex;align-items:center;gap:8px}
+    .live-indicator{width:10px;height:10px;background:#e74c3c;border-radius:50%;animation:pulse 1.5s infinite}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+    .live-log-controls{display:flex;gap:8px}
+    .live-log-controls button{padding:4px 12px;font-size:.8rem}
+    .live-log-content{flex:1;overflow-y:auto;padding:8px 16px;font-family:"Monaco","Menlo","Ubuntu Mono",monospace;font-size:.85rem}
+    .log-entry{padding:4px 0;border-bottom:1px solid #1a1a2e;display:flex;gap:12px}
+    .log-entry.error{color:#e74c3c}.log-entry.warning{color:#f39c12}.log-entry.info{color:#3498db}.log-entry.success{color:#27ae60}
+    .log-time{color:#666;min-width:80px}.log-category{color:#9b59b6;min-width:120px}.log-message{flex:1;word-break:break-word}
+    /* Debug Fab */
+    .debug-fab-container{position:fixed;bottom:220px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:500}
+    .debug-fab{width:48px;height:48px;border-radius:50%;border:none;cursor:pointer;font-size:1.2rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.4);transition:all .2s}
+    .debug-fab:hover{transform:scale(1.1)}
+    .debug-fab.primary{background:#e74c3c;color:#fff}
+    .debug-fab.secondary{background:#16213e;color:#e0e0e0;border:1px solid #333}
+    .debug-fab-tooltip{position:absolute;right:56px;background:#16213e;color:#fff;padding:4px 10px;border-radius:4px;font-size:.75rem;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .2s}
+    .debug-fab:hover .debug-fab-tooltip{opacity:1}
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h1>⚠️ Error Log</h1>
+    <p>Centralized error tracking across all application components</p>
+  </div>
+
+  <div class="container">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="value" id="stat-unresolved">{{ stats.unresolved_errors }}</div>
+        <div class="label">Unresolved Errors</div>
+      </div>
+      <div class="stat-card resolved">
+        <div class="value" id="stat-resolved">{{ stats.resolved_errors }}</div>
+        <div class="label">Resolved</div>
+      </div>
+      <div class="stat-card">
+        <div class="value" id="stat-total">{{ stats.total_errors }}</div>
+        <div class="label">Total Logged</div>
+      </div>
+      <div style="flex:1"></div>
+      <button class="btn btn-primary" onclick="refreshErrors()">🔄 Refresh</button>
+      <button class="btn btn-danger" onclick="clearResolved()">🗑️ Clear Resolved</button>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs" id="category-tabs">
+      <div class="tab active" data-category="all" onclick="filterCategory('all')">
+        All Errors <span class="count" id="count-all">{{ stats.unresolved_errors }}</span>
+      </div>
+      {% for cat in stats.by_category %}
+      <div class="tab" data-category="{{ cat.category }}" onclick="filterCategory('{{ cat.category }}')">
+        {{ cat.category_label }}
+        <span class="count {% if cat.count == 0 %}zero{% endif %}">{{ cat.count }}</span>
+      </div>
+      {% endfor %}
+      {% for code, label in stats.categories.items() %}
+        {% if code not in stats.by_category|map(attribute='category')|list %}
+        <div class="tab" data-category="{{ code }}" onclick="filterCategory('{{ code }}')">
+          {{ label }} <span class="count zero">0</span>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+
+    <!-- Error List -->
+    <div class="error-panel">
+      <div class="error-list" id="error-list">
+        {% if errors %}
+          {% for error in errors %}
+          <div class="error-item {% if error.resolved %}resolved{% endif %}"
+               data-category="{{ error.category }}"
+               onclick="showErrorDetail({{ error.id }})">
+            <div class="error-header">
+              <span class="error-type">{{ error.error_type }}</span>
+              <span class="error-count">{{ error.occurrence_count }}x</span>
+            </div>
+            <div class="error-message">{{ error.error_message[:200] }}{% if error.error_message|length > 200 %}...{% endif %}</div>
+            <div class="error-meta">
+              <span>📁 {{ stats.categories.get(error.category, error.category) }}</span>
+              <span>🕐 First: {{ error.first_occurred[:16] }}</span>
+              <span>🕐 Last: {{ error.last_occurred[:16] }}</span>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+          <div class="empty-state"><h3>✅ No Errors!</h3><p>All systems running smoothly</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Error Detail Modal -->
+  <div class="modal" id="error-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2 id="modal-title">Error Details</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+      <div class="modal-body" id="modal-body">Loading...</div>
+      <div class="modal-actions">
+        <button class="btn btn-copy" onclick="copyDebugReport()">📋 Copy Debug Report</button>
+        <button class="btn btn-success" onclick="markResolved()">✅ Mark Resolved</button>
+        <button class="btn btn-danger" onclick="deleteError()">🗑️ Delete</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">Copied to clipboard!</div>
+
+  <!-- Debug Floating Action Buttons (bottom-right) -->
+  <div class="debug-fab-container" id="debug-fabs">
+    <button class="debug-fab secondary" onclick="exportAllErrors()" title="Export all errors as JSON">
+      <span class="debug-fab-tooltip">Export JSON</span>📥
+    </button>
+    <button class="debug-fab secondary" onclick="copyLatestDebugReport()" title="Copy latest error debug report">
+      <span class="debug-fab-tooltip">Copy Latest Report</span>📋
+    </button>
+    <button class="debug-fab secondary" onclick="toggleLiveLog()" title="Toggle live log">
+      <span class="debug-fab-tooltip">Toggle Live Log</span>📜
+    </button>
+    <button class="debug-fab primary" onclick="triggerTestError()" title="Send a test error">
+      <span class="debug-fab-tooltip">Test Error</span>🧪
+    </button>
+  </div>
+
+  <!-- Live Event Log Footer -->
+  <div class="live-event-log" id="live-log">
+    <div class="live-log-header">
+      <h3><span class="live-indicator"></span> Live Error Stream</h3>
+      <div class="live-log-controls">
+        <button class="btn btn-primary" onclick="toggleAutoScroll()">📜 Auto-scroll: <span id="autoscroll-status">ON</span></button>
+        <button class="btn btn-danger" onclick="clearLiveLog()">🗑️ Clear</button>
+        <button class="btn btn-primary" onclick="toggleLiveLog()">▼ Minimize</button>
+      </div>
+    </div>
+    <div class="live-log-content" id="live-log-content">
+      <div class="log-entry info">
+        <span class="log-time">--:--:--</span>
+        <span class="log-category">[SYSTEM]</span>
+        <span class="log-message">Live error stream connected. Errors will appear here in real-time.</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentErrorId = null;
+    let currentCategory = 'all';
+    let autoScroll = true;
+    let liveLogMinimized = false;
+    let lastErrorCount = {{ stats.total_errors }};
+    const CATEGORIES = {{ stats.categories | tojson | safe }};
+
+    function filterCategory(category) {
+      currentCategory = category;
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.category === category));
+      document.querySelectorAll('.error-item').forEach(item => {
+        item.style.display = (category === 'all' || item.dataset.category === category) ? 'block' : 'none';
+      });
+      addLiveLogEntry('info', 'FILTER', `Showing ${category === 'all' ? 'all errors' : CATEGORIES[category] || category}`);
+    }
+
+    async function showErrorDetail(errorId) {
+      currentErrorId = errorId;
+      document.getElementById('error-modal').classList.add('active');
+      document.getElementById('modal-body').innerHTML = '<p style="text-align:center;padding:2rem;">Loading...</p>';
+      try {
+        const resp = await fetch(`/api/errors/${errorId}`);
+        const data = await resp.json();
+        if (data.success === false) { document.getElementById('modal-body').innerHTML = `<p style="color:#e74c3c;">Error: ${data.error}</p>`; return; }
+        const err = data.error || data;
+        if (!err || !err.error_type) { document.getElementById('modal-body').innerHTML = '<p style="color:#e74c3c;">Invalid error data</p>'; return; }
+        document.getElementById('modal-title').textContent = `${err.error_type} (${err.occurrence_count || 1}x)`;
+        document.getElementById('modal-body').innerHTML = renderErrorDetail(err);
+        addLiveLogEntry('info', 'VIEW', `Viewing error #${errorId}: ${err.error_type}`);
+      } catch (e) {
+        document.getElementById('modal-body').innerHTML = `<p style="color:#e74c3c;">Failed: ${e.message}</p>`;
+      }
+    }
+
+    function renderErrorDetail(data) {
+      const occ = data.occurrences && data.occurrences[0] ? data.occurrences[0] : {};
+      let html = `<div class="detail-section"><h3>Error Information</h3>
+        <div class="detail-row"><span class="detail-label">Category:</span><span class="detail-value">${data.category_label || data.category} (${data.category})</span></div>
+        <div class="detail-row"><span class="detail-label">Type:</span><span class="detail-value">${data.error_type}</span></div>
+        <div class="detail-row"><span class="detail-label">Occurrences:</span><span class="detail-value">${data.occurrence_count || 1}</span></div>
+        <div class="detail-row"><span class="detail-label">First Seen:</span><span class="detail-value">${data.first_occurred}</span></div>
+        <div class="detail-row"><span class="detail-label">Last Seen:</span><span class="detail-value">${data.last_occurred}</span></div>
+        </div><div class="detail-section"><h3>Error Message</h3><pre>${esc(data.error_message)}</pre></div>`;
+      if (occ.context) html += `<div class="detail-section"><h3>Context</h3><pre>${esc(occ.context)}</pre></div>`;
+      if (occ.stack_trace) html += `<div class="detail-section"><h3>Stack Trace</h3><pre>${esc(occ.stack_trace)}</pre></div>`;
+      if (occ.page_url) html += `<div class="detail-section"><h3>Page URL</h3><pre>${esc(occ.page_url)}</pre></div>`;
+      if (occ.request_url) html += `<div class="detail-section"><h3>Request URL</h3><pre>${esc(occ.request_url)}</pre></div>`;
+      if (occ.http_status) html += `<div class="detail-section"><h3>HTTP Status</h3><pre>${occ.http_status}</pre></div>`;
+      if (occ.console_logs) { try { const logs = JSON.parse(occ.console_logs); if (logs.length) html += `<div class="detail-section"><h3>Console Logs (${logs.length})</h3><pre>${esc(JSON.stringify(logs,null,2))}</pre></div>`; } catch(e){} }
+      if (occ.extra_data) { try { const ex = JSON.parse(occ.extra_data); html += `<div class="detail-section"><h3>Extra Data</h3><pre>${esc(JSON.stringify(ex,null,2))}</pre></div>`; } catch(e){} }
+      return html;
+    }
+
+    function esc(t) { if (!t) return ''; const d = document.createElement('div'); d.textContent = t; return d.innerHTML; }
+    function closeModal() { document.getElementById('error-modal').classList.remove('active'); currentErrorId = null; }
+
+    function copyToClipboard(text) {
+      if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+      return new Promise((resolve, reject) => {
+        const ta = document.createElement('textarea'); ta.value = text;
+        ta.style.cssText = 'position:fixed;left:0;top:0;width:1px;height:1px;opacity:.01;z-index:99999';
+        document.body.appendChild(ta); ta.focus(); ta.select(); ta.setSelectionRange(0, text.length);
+        try { const ok = document.execCommand('copy'); document.body.removeChild(ta); ok ? resolve() : reject(new Error('execCommand failed')); }
+        catch (e) { document.body.removeChild(ta); reject(e); }
+      });
+    }
+
+    async function copyDebugReport() {
+      if (!currentErrorId) return;
+      try {
+        const resp = await fetch(`/api/errors/${currentErrorId}/debug-report`);
+        const data = await resp.json();
+        if (!data.debug_code) { showToast('Failed to generate report'); return; }
+        try { await copyToClipboard(data.debug_code); showToast('📋 Debug report copied!'); addLiveLogEntry('success', 'COPY', `Copied report for error #${currentErrorId}`); }
+        catch (e) { console.log('=== DEBUG REPORT ===\n' + data.debug_code); showToast('⚠️ Report logged to console (F12)'); }
+      } catch (e) { showToast('Failed: ' + e.message); }
+    }
+
+    async function copyLatestDebugReport() {
+      try {
+        const resp = await fetch('/api/errors?limit=1');
+        const data = await resp.json();
+        if (!data.errors || !data.errors.length) { showToast('No errors to report'); return; }
+        const id = data.errors[0].id;
+        const resp2 = await fetch(`/api/errors/${id}/debug-report`);
+        const data2 = await resp2.json();
+        if (data2.debug_code) { await copyToClipboard(data2.debug_code); showToast('📋 Latest error report copied!'); }
+      } catch (e) { showToast('Failed: ' + e.message); }
+    }
+
+    async function exportAllErrors() {
+      try {
+        const resp = await fetch('/api/errors?limit=1000&include_resolved=true');
+        const data = await resp.json();
+        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
+        const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        a.download = `error-export-${new Date().toISOString().slice(0,10)}.json`; a.click();
+        addLiveLogEntry('success', 'EXPORT', `Exported ${data.errors.length} errors`);
+      } catch (e) { showToast('Export failed: ' + e.message); }
+    }
+
+    async function triggerTestError() {
+      try {
+        await fetch('/api/log-frontend-error', {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({errors: [{error_type: 'TestError', error_message: 'Manual test error from debug button', source: 'debug-fab', page_url: window.location.href}]})
+        });
+        showToast('🧪 Test error sent!'); addLiveLogEntry('warning', 'TEST', 'Manual test error logged');
+        setTimeout(refreshErrors, 1000);
+      } catch (e) { showToast('Failed: ' + e.message); }
+    }
+
+    async function markResolved() {
+      if (!currentErrorId) return;
+      try {
+        const resp = await fetch(`/api/errors/${currentErrorId}/resolve`, {method:'POST'});
+        const data = await resp.json();
+        if (data.success) { showToast('✅ Resolved'); addLiveLogEntry('success','RESOLVED',`Error #${currentErrorId} resolved`); closeModal(); refreshErrors(); }
+      } catch (e) { showToast('Error: ' + e.message); }
+    }
+
+    async function deleteError() {
+      if (!currentErrorId || !confirm('Delete this error?')) return;
+      try {
+        const resp = await fetch(`/api/errors/${currentErrorId}`, {method:'DELETE'});
+        const data = await resp.json();
+        if (data.success) { showToast('🗑️ Deleted'); closeModal(); refreshErrors(); }
+      } catch (e) { showToast('Error: ' + e.message); }
+    }
+
+    async function clearResolved() {
+      if (!confirm('Clear all resolved errors?')) return;
+      try {
+        const resp = await fetch('/api/errors/clear-resolved', {method:'POST'});
+        const data = await resp.json();
+        showToast(`🗑️ Cleared ${data.cleared} resolved errors`); refreshErrors();
+      } catch (e) { showToast('Error: ' + e.message); }
+    }
+
+    function refreshErrors() { addLiveLogEntry('info','REFRESH','Refreshing...'); window.location.reload(); }
+    function showToast(msg) { const t = document.getElementById('toast'); t.textContent = msg; t.classList.add('show'); setTimeout(() => t.classList.remove('show'), 3000); }
+
+    function addLiveLogEntry(type, category, message) {
+      const c = document.getElementById('live-log-content');
+      const e = document.createElement('div'); e.className = `log-entry ${type}`;
+      e.innerHTML = `<span class="log-time">${new Date().toTimeString().slice(0,8)}</span><span class="log-category">[${category}]</span><span class="log-message">${esc(message)}</span>`;
+      c.appendChild(e);
+      while (c.children.length > 100) c.removeChild(c.firstChild);
+      if (autoScroll) c.scrollTop = c.scrollHeight;
+    }
+
+    function toggleAutoScroll() { autoScroll = !autoScroll; document.getElementById('autoscroll-status').textContent = autoScroll ? 'ON' : 'OFF'; }
+    function clearLiveLog() { document.getElementById('live-log-content').innerHTML = ''; addLiveLogEntry('info','SYSTEM','Log cleared'); }
+    function toggleLiveLog() {
+      const log = document.getElementById('live-log'); liveLogMinimized = !liveLogMinimized;
+      log.style.height = liveLogMinimized ? '40px' : '200px';
+      document.body.style.paddingBottom = liveLogMinimized ? '60px' : '220px';
+    }
+
+    async function pollForNewErrors() {
+      try {
+        const resp = await fetch('/api/errors/stats'); const stats = await resp.json();
+        if (stats.total_errors > lastErrorCount) {
+          addLiveLogEntry('error','NEW ERROR',`${stats.total_errors - lastErrorCount} new error(s)! Click Refresh.`);
+          lastErrorCount = stats.total_errors;
+          document.getElementById('stat-unresolved').textContent = stats.unresolved_errors;
+          document.getElementById('stat-resolved').textContent = stats.resolved_errors;
+          document.getElementById('stat-total').textContent = stats.total_errors;
+        }
+      } catch (e) {}
+    }
+
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+    document.getElementById('error-modal').addEventListener('click', e => { if (e.target.id === 'error-modal') closeModal(); });
+    setInterval(pollForNewErrors, 5000);
+    addLiveLogEntry('success','READY',`Error log loaded with ${lastErrorCount} total errors`);
+  </script>
+</body>
+</html>

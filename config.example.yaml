@@ -1,0 +1,26 @@
+# Flask Error Tracker Configuration
+
+error_logging:
+  enabled: true
+  database_path: data/error_log.db
+  log_to_console: true
+
+  # Default categories are always available: database, api, frontend, server, worker, test, content_processing
+  # Enable/disable individual categories:
+  categories:
+    database: true
+    api: true
+    frontend: true
+    server: true
+    worker: true
+    test: true
+    content_processing: true
+
+  # Add your own custom categories:
+  custom_categories:
+    # my_service: "My Custom Service"
+    # payments: "Payment Processing"
+
+  retention:
+    max_errors: 10000
+    max_age_days: 30

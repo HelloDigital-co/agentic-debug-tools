@@ -3,9 +3,9 @@ requires = ["setuptools>=68.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "flask-error-tracker"
-version = "1.0.0"
-description = "Unified error logging, tracking, and debugging dashboard for Flask applications"
+name = "agentic-debug-tools"
+version = "2026.02.18"
+description = "Agentic Debug Tools — error logging, tracking, and floating debug button for Flask apps. Built for AI-assisted development workflows."
 readme = "README.md"
 license = {text = "MIT"}
 requires-python = ">=3.9"

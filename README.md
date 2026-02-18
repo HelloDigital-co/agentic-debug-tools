@@ -1,17 +1,48 @@
-# Flask Error Tracker
+# Agentic Debug Tools
 
-A unified error logging, tracking, and debugging dashboard for Flask applications.
+Error logging, tracking, and a floating debug button (FAB) for Flask applications. Built for AI-assisted development — any agent (Kiro, Cursor, Copilot, Windsurf) can read `AGENTS.md` and integrate this into your project.
 
-- **Embeddable**: Drop into any Flask app as a Blueprint
-- **Standalone**: Run as its own microservice
-- **Frontend capture**: Auto-collects browser JS errors, failed fetches, console errors
-- **AI-friendly debug reports**: One-click Markdown export for any AI assistant or issue tracker
-- **Live dashboard**: Real-time error stream, category tabs, stats, resolution tracking
-- **Configurable categories**: Ships with sensible defaults, add your own
+## Quick Start (2 lines)
 
-## Quick Start
+```python
+from flask_error_tracker import init_error_tracker
 
-### As a Blueprint (embed in your Flask app)
+init_error_tracker(app)  # That's it. Debug button + error tracking enabled.
+```
+
+Visit `/error-log` for the full dashboard.
+
+## What You Get
+
+- Floating Action Button (FAB) in the lower-right corner with expandable actions: View Log, Reload, Test Error, Dashboard link
+- In-memory console + error capture with modal viewer and copy-to-clipboard
+- Backend error tracking with SQLite (deduplication, categories, resolution tracking)
+- Frontend error collector that auto-captures JS errors, failed fetches, console.error
+- AI-friendly debug reports in Markdown — one-click copy for any AI assistant or issue tracker
+- Live error stream dashboard with category tabs, stats, and polling
+
+## Installation
+
+### From GitHub (recommended)
+
+```bash
+pip install git+https://github.com/HelloDigital-co/agentic-debug-tools.git
+```
+
+### From a local clone
+
+```bash
+git clone https://github.com/HelloDigital-co/agentic-debug-tools.git
+pip install -e ./agentic-debug-tools
+```
+
+### Subfolder approach (copy into your project)
+
+Copy the `flask_error_tracker/` directory into your project and import directly. No pip install needed — just make sure `flask` and `pyyaml` are in your requirements.
+
+## Integration
+
+### As a Flask Blueprint (recommended)
 
 ```python
 from flask import Flask
@@ -21,31 +52,45 @@ app = Flask(__name__)
 init_error_tracker(app)
 ```
 
-The debug button auto-injects into every HTML page. By default it's hidden and only appears when JS errors are detected. To make it always visible:
+The debug button and error collector auto-inject into every HTML response. Options:
 
-```python
-init_error_tracker(app, debug_button='always')
+| `debug_button=` | Behavior |
+|---|---|
+| `'errors-only'` (default) | Hidden until a JS error occurs |
+| `'always'` | Visible on every page |
+| `False` | Disabled |
+
+### JS-Only (no Python backend)
+
+Drop the debug button into any HTML page:
+
+```html
+<script src="/error-tracker-static/debug-button.js"></script>
 ```
 
-Options for `debug_button`:
-- `'errors-only'` (default) — hidden until a JS error, console.error, or unhandled rejection occurs
-- `'always'` — visible on every page regardless of errors
-- `False` — disabled, no auto-injection
+Optional config:
+```html
+<script>
+window.DEBUG_BUTTON_CONFIG = {
+  position: 'bottom-right',
+  showTestButton: true,
+  showReloadButton: true,
+  errorLogUrl: '/error-log',
+  alwaysVisible: false,
+  maxLogs: 500,
+};
+</script>
+```
 
-Then visit `/error-log` in your app.
-
-### As a Standalone Service
+### Standalone Microservice
 
 ```bash
-pip install -e .
 python app.py --port 5100
 ```
 
-Dashboard at `http://localhost:5100/error-log`
+Other apps POST errors to `/api/log-frontend-error`.
 
-## Logging Errors
-
-### Python (backend)
+## Logging Errors (Python)
 
 ```python
 from flask_error_tracker import get_error_db
@@ -58,73 +103,38 @@ except Exception as e:
         category='api',
         error_type=type(e).__name__,
         error_message=str(e),
-        context='Calling payment gateway',
         stack_trace=traceback.format_exc(),
     )
     raise
 ```
 
-### JavaScript (frontend)
+## Public JS API
 
-Add to any HTML page:
-```html
-<script src="/error-tracker-static/error-collector.js"></script>
-```
-
-Auto-captures JS errors, failed fetches, console.error, and toast errors. Manual reporting:
 ```javascript
-ErrorCollector.report('CustomError', 'Something broke', { userId: 123 });
-```
-
-### Debug Button (floating widget)
-
-Add a self-contained debug button to any page — captures console logs and JS errors in-memory, shows them in a modal, with copy-to-clipboard:
-```html
-<script src="/error-tracker-static/debug-button.js"></script>
-```
-
-A red 🐛 Debug button appears in the lower-right corner with a live error count badge. Click it to view all captured errors and console output. Optional config:
-```html
-<script>
-  window.DEBUG_BUTTON_CONFIG = {
-    position: 'bottom-right',   // or 'bottom-left'
-    errorLogUrl: '/error-log',  // link to full dashboard (null to hide)
-    showTestButton: true,       // show test error button in modal
-    maxLogs: 500,               // max log entries to keep
-  };
-</script>
-<script src="/error-tracker-static/debug-button.js"></script>
-```
-
-Public API:
-```javascript
-DebugButton.show();           // open the modal
-DebugButton.hide();           // close it
+DebugButton.show();           // open the log modal
+DebugButton.hide();           // close the log modal
 DebugButton.logError(msg, e); // manually log an error
 DebugButton.clear();          // clear all logs
 DebugButton.getErrorLog();    // get error entries
 DebugButton.getConsoleLog();  // get console entries
+DebugButton.openFab();        // expand FAB actions
+DebugButton.closeFab();       // collapse FAB actions
+
+ErrorCollector.report('CustomError', 'Something broke', { extra: 'data' });
+ErrorCollector.flush();       // force-send pending errors to backend
 ```
 
-## Default Categories
+## Default Error Categories
 
 `database`, `api`, `frontend`, `server`, `worker`, `test`, `content_processing`
 
-Custom categories are auto-registered on first use, or define them in `config.yaml`:
+Custom categories auto-register on first use, or define in `config.yaml`:
 ```yaml
 error_logging:
   custom_categories:
     payments: "Payment Processing"
     auth: "Authentication"
 ```
-
-## Configuration
-
-Copy `config.example.yaml` to `config.yaml` and customize. Key options:
-- `enabled` — master on/off switch
-- `database_path` — where to store the SQLite database
-- `categories` — enable/disable individual categories
-- `custom_categories` — add project-specific categories
 
 ## API Endpoints
 
@@ -140,16 +150,6 @@ Copy `config.example.yaml` to `config.yaml` and customize. Key options:
 | GET | `/api/errors/stats` | Stats (for polling) |
 | POST | `/api/log-frontend-error` | Receive frontend errors |
 
-## Dashboard Features
-
-- Real-time error statistics
-- Category-based filtering tabs
-- Error detail modal with full context
-- Copy debug report (Markdown) for AI assistants
-- Live error stream footer
-- Debug floating action buttons: export JSON, copy latest report, send test error
-- Mark resolved / delete / clear resolved
-
 ## Testing
 
 ```bash
@@ -157,24 +157,10 @@ pip install -e ".[dev]"
 pytest tests/ -v
 ```
 
-## AI Agent Support
+## For AI Agents
 
-- `AGENTS.md` — universal AI agent context file
-- `.kiro/steering/error-logging.md` — Kiro steering rules
-- `.kiro/hooks/` — automated hooks for error logging enforcement
+See `AGENTS.md` for structured context that any AI coding assistant can consume.
 
 ## License
 
 MIT
-
-## Multi-Root Workspace (HelloDigital-Site-Recovery-Tools)
-
-This package is used as an editable install in the HelloDigital-Site-Recovery-Tools project. To get full editor support (file tree, diagnostics, code navigation) for both projects simultaneously:
-
-1. Open `BrianKenyon.code-workspace` from the HelloDigital-Site-Recovery-Tools project root
-2. Both folders appear in the sidebar — edits to this package take effect immediately
-
-The workspace file lives at:
-```
-/Users/briankenyon/Development/Active/HelloDigital-Site-Recovery-Tools/BrianKenyon.code-workspace
-```

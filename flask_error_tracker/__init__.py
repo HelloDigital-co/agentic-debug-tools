@@ -7,7 +7,7 @@ Can be used as:
 2. A standalone Flask microservice: python app.py
 """
 
-__version__ = "1.0.0"
+__version__ = "2026.02.18"
 
 from .database import ErrorDatabase, get_error_db, DEFAULT_CATEGORIES
 from .blueprint import create_blueprint, init_error_tracker

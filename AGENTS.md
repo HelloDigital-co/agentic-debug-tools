@@ -1,78 +1,35 @@
-# Flask Error Tracker — AI Agent Context
+# Agentic Debug Tools — AI Agent Context
 
-This file provides context for AI coding assistants (Kiro, Cursor, Copilot, Windsurf, etc.) working on this project.
+This file is for AI coding assistants (Kiro, Cursor, Copilot, Windsurf, etc.). Read this to integrate the debug tools into a Flask project.
 
-## Project Overview
+## Quick Integration (do this first)
 
-Flask Error Tracker is a unified error logging, tracking, and debugging system for Flask applications. It can be used as an embeddable Flask Blueprint or a standalone microservice.
+### Step 1: Install
 
-## Architecture
+```bash
+# From GitHub
+pip install git+https://github.com/HelloDigital-co/agentic-debug-tools.git
 
-### Core Components
+# Or from a local subfolder
+pip install -e ./Agentic-Debug-Tools-20260218
+```
 
-| Component | Path | Purpose |
-|-----------|------|---------|
-| ErrorDatabase | `flask_error_tracker/database.py` | SQLite-backed error storage with deduplication, categories, stats |
-| Blueprint | `flask_error_tracker/blueprint.py` | Flask Blueprint with dashboard + REST API routes |
-| Dashboard | `flask_error_tracker/templates/error_log.html` | Real-time error viewer with live log, modals, debug report copy |
-| Error Collector | `flask_error_tracker/static/error-collector.js` | Frontend JS that auto-captures browser errors and sends to API |
-| Debug Button | `flask_error_tracker/static/debug-button.js` | Floating debug button widget with in-memory console/error log viewer |
-| Standalone App | `app.py` | Runs the tracker as an independent Flask server |
+### Step 2: Add to Flask app
 
-### Database Schema
-
-Two tables in SQLite:
-
-- `errors` — Deduplicated error entries (hash, category, type, message, occurrence count, resolved status)
-- `error_occurrences` — Individual occurrences with full context (stack trace, request URL, console logs, etc.)
-
-### Default Error Categories
-
-`database`, `api`, `frontend`, `server`, `worker`, `test`, `content_processing`
-
-Custom categories are auto-registered when first used, or can be defined in `config.yaml` under `custom_categories`.
-
-### API Endpoints
-
-| Method | Path | Purpose |
-|--------|------|---------|
-| GET | `/error-log` | Dashboard HTML page |
-| GET | `/api/errors` | List errors (filterable by category) |
-| GET | `/api/errors/<id>` | Error detail with occurrences |
-| GET | `/api/errors/<id>/debug-report` | Markdown debug report for AI/issue trackers |
-| POST | `/api/errors/<id>/resolve` | Mark error resolved |
-| DELETE | `/api/errors/<id>` | Delete error |
-| POST | `/api/errors/clear-resolved` | Clear all resolved errors |
-| GET | `/api/errors/stats` | Statistics for live polling |
-| POST | `/api/log-frontend-error` | Receive batched frontend errors |
-
-### Integration Patterns
-
-**As a Blueprint (embed in existing Flask app):**
 ```python
 from flask_error_tracker import init_error_tracker
+
+# Add this after creating your Flask app
 init_error_tracker(app)
 ```
 
-**As a standalone service:**
-```bash
-python app.py --port 5100
-```
+That's it. Every HTML page now gets:
+- A floating debug button (FAB) in the lower-right corner
+- Automatic JS error capture (window.onerror, unhandled rejections, console.error, failed fetches)
+- Backend error logging with SQLite storage
+- A dashboard at `/error-log`
 
-**Frontend error collection (add to any HTML page):**
-```html
-<script src="/error-tracker-static/error-collector.js"></script>
-```
-
-**Debug button widget (floating 🐛 button with console log viewer):**
-```html
-<script src="/error-tracker-static/debug-button.js"></script>
-```
-Configurable via `window.DEBUG_BUTTON_CONFIG` (position, errorLogUrl, showTestButton, maxLogs). Exposes `window.DebugButton` API.
-
-## Error Logging Convention
-
-Every try/except block should log to the error database:
+### Step 3: Add error logging to existing try/except blocks
 
 ```python
 from flask_error_tracker import get_error_db
@@ -91,17 +48,82 @@ except Exception as e:
     raise
 ```
 
-## Debug Report Generation
+## Architecture
 
-The `generate_debug_report()` method produces a Markdown report suitable for pasting into any AI assistant or issue tracker. It includes error details, stack traces, context, request info, and category-specific fields.
+| Component | Path | Purpose |
+|-----------|------|---------|
+| ErrorDatabase | `flask_error_tracker/database.py` | SQLite error storage with deduplication, categories, stats |
+| Blueprint | `flask_error_tracker/blueprint.py` | Flask Blueprint with dashboard + REST API |
+| Dashboard | `flask_error_tracker/templates/error_log.html` | Real-time error viewer with live log, modals, debug reports |
+| Error Collector | `flask_error_tracker/static/error-collector.js` | Auto-captures browser errors and sends to backend API |
+| Debug Button | `flask_error_tracker/static/debug-button.js` | FAB widget — click to expand: View Log, Reload, Test Error |
+| Standalone App | `app.py` | Runs the tracker as an independent Flask server |
 
-## Configuration
+## init_error_tracker() Options
 
-See `config.example.yaml` for all options. Key settings:
-- `error_logging.enabled` — master on/off switch
-- `error_logging.categories` — enable/disable per category
-- `error_logging.custom_categories` — define project-specific categories
-- `error_logging.database_path` — SQLite file location
+```python
+init_error_tracker(
+    app,
+    error_db=None,              # Custom ErrorDatabase instance (uses singleton if None)
+    url_prefix='',              # URL prefix for all routes
+    catch_flask_errors=True,    # Register global Flask error handler
+    debug_button='errors-only', # 'errors-only' | 'always' | False
+)
+```
+
+## API Endpoints
+
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/error-log` | Dashboard HTML |
+| GET | `/api/errors` | List errors (filter by `?category=`) |
+| GET | `/api/errors/<id>` | Error detail with occurrences |
+| GET | `/api/errors/<id>/debug-report` | Markdown report for AI/issue trackers |
+| POST | `/api/errors/<id>/resolve` | Mark resolved |
+| DELETE | `/api/errors/<id>` | Delete |
+| POST | `/api/errors/clear-resolved` | Clear resolved |
+| GET | `/api/errors/stats` | Stats (for polling) |
+| POST | `/api/log-frontend-error` | Receive frontend errors (JSON batch) |
+
+## Error Categories
+
+Default: `database`, `api`, `frontend`, `server`, `worker`, `test`, `content_processing`
+
+Custom categories auto-register on first use. Define in `config.yaml`:
+```yaml
+error_logging:
+  custom_categories:
+    payments: "Payment Processing"
+```
+
+## JS-Only Usage (no Python backend)
+
+```html
+<script src="/error-tracker-static/debug-button.js"></script>
+```
+
+Config via `window.DEBUG_BUTTON_CONFIG`:
+- `position`: `'bottom-right'` or `'bottom-left'`
+- `showTestButton`: `true/false`
+- `showReloadButton`: `true/false`
+- `errorLogUrl`: URL to dashboard (or `null`)
+- `alwaysVisible`: `true/false`
+- `maxLogs`: max entries to keep (default 500)
+
+Public API: `window.DebugButton.show()`, `.hide()`, `.logError(msg, err)`, `.clear()`, `.openFab()`, `.closeFab()`
+
+## Database Schema
+
+- `errors` — deduplicated entries (hash, category, type, message, count, resolved)
+- `error_occurrences` — individual occurrences (stack trace, request URL, console logs, etc.)
+
+## File Organization
+
+- Python package: `flask_error_tracker/`
+- Templates: `flask_error_tracker/templates/`
+- Static JS: `flask_error_tracker/static/`
+- Tests: `tests/`
+- Standalone server: `app.py`
 
 ## Testing
 
@@ -109,11 +131,3 @@ See `config.example.yaml` for all options. Key settings:
 pip install -e ".[dev]"
 pytest tests/ -v
 ```
-
-## File Organization Rules
-
-- All Python source lives in `flask_error_tracker/`
-- Templates in `flask_error_tracker/templates/`
-- Static assets in `flask_error_tracker/static/`
-- Tests in `tests/`
-- No scripts in the project root except `app.py`

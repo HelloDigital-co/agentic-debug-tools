@@ -8,7 +8,7 @@
 (function () {
   "use strict";
 
-  const ERROR_ENDPOINT = "/api/log-frontend-error";
+  const ERROR_ENDPOINT = window.__ERROR_COLLECTOR_ENDPOINT || "/api/log-frontend-error";
   const MAX_CONSOLE_LOGS = 50;
   const BATCH_INTERVAL = 5000;
 

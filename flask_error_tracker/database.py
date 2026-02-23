@@ -267,6 +267,25 @@ class ErrorDatabase:
             row = conn.execute("SELECT * FROM error_occurrences WHERE id = ?", (occurrence_id,)).fetchone()
             return dict(row) if row else None
 
+    def add_note(self, error_id: int, note: str) -> bool:
+        """Append a note to an error without marking it resolved"""
+        with sqlite3.connect(self.db_path) as conn:
+            existing = conn.execute(
+                "SELECT resolution_notes FROM errors WHERE id = ?", (error_id,)
+            ).fetchone()
+            if not existing:
+                return False
+            current = existing[0] or ''
+            timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
+            separator = '\n---\n' if current else ''
+            updated = f"{current}{separator}[{timestamp}] {note}"
+            cursor = conn.execute(
+                "UPDATE errors SET resolution_notes = ? WHERE id = ?",
+                (updated, error_id)
+            )
+            conn.commit()
+            return cursor.rowcount > 0
+
     def mark_resolved(self, error_id: int, notes: str = None) -> bool:
         """Mark an error as resolved"""
         with sqlite3.connect(self.db_path) as conn:

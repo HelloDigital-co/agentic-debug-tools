@@ -74,6 +74,17 @@ def create_blueprint(error_db: ErrorDatabase = None, url_prefix: str = '') -> Bl
         report = db().generate_debug_report(error_id, occurrence_id)
         return jsonify({'success': True, 'debug_code': report})
 
+    # ── API: Add Note (without resolving) ──
+
+    @bp.route('/api/errors/<int:error_id>/note', methods=['POST'])
+    def add_note_api(error_id):
+        data = request.get_json() or {}
+        note = data.get('note', '').strip()
+        if not note:
+            return jsonify({'success': False, 'error': 'Note is required'}), 400
+        success = db().add_note(error_id, note)
+        return jsonify({'success': success})
+
     # ── API: Resolve ──
 
     @bp.route('/api/errors/<int:error_id>/resolve', methods=['POST'])
@@ -99,6 +110,26 @@ def create_blueprint(error_db: ErrorDatabase = None, url_prefix: str = '') -> Bl
     @bp.route('/api/errors/stats')
     def get_stats_api():
         return jsonify(db().get_stats())
+
+    # ── API: Receive Backend Errors ──
+
+    @bp.route('/api/log-error', methods=['POST'])
+    def log_backend_error():
+        data = request.get_json() or {}
+        try:
+            db().log_error(
+                category=data.get('category', 'server'),
+                error_type=data.get('error_type', 'Error'),
+                error_message=data.get('error_message', 'Unknown error'),
+                context=data.get('context'),
+                stack_trace=data.get('stack_trace'),
+                request_url=data.get('extra_data', {}).get('url'),
+                http_status=data.get('extra_data', {}).get('status'),
+                extra_data=data.get('extra_data'),
+            )
+            return jsonify({'success': True})
+        except Exception:
+            return jsonify({'success': False}), 500
 
     # ── API: Receive Frontend Errors ──
 
